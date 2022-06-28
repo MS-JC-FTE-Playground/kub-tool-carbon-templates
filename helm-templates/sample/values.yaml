@@ -1,0 +1,292 @@
+# Default values for {{ .TemplateBuilder.Name }}.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+repositories:
+  base: {{ .TemplateBuilder.BaseImagesACR }}
+  app: {{ .TemplateBuilder.AppACR }}
+
+image:
+  namespace: {{ .TemplateBuilder.ImageNamespace }}
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: {{ .TemplateBuilder.ImageTag }}
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+externalDNS:
+  enabled: false
+  dnsLabel:  {{ .TemplateBuilder.ProductFamily }}.{{ .TemplateBuilder.DnsLabel }}
+
+aadPodIdentity:
+  enabled: true
+  identity: "" # Optional. IF not passed it will default to 'aib-{{ .TemplateBuilder.Name }}'
+
+ingress:
+  pattern: loadbalancer    # one of: loadbalancer, agic, ingress, none, istio
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: {{ .TemplateBuilder.Name }}.local
+      paths: []
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+istio:
+  pattern: singlegateway          # serviceentry, sharedgateway, singlegateway
+  tls:
+    enabled: false
+    mode: SIMPLE
+    portName: https
+    portProtocol: HTTPS
+    port: 443
+  singlegateway: 
+    name: igwy-{{ .TemplateBuilder.Name }}
+  sharedgateway: 
+    name: igwy-{{ .TemplateBuilder.Tribe }}
+  virtualService:
+    port: 8080
+    portProtocol: http 
+    host: {{ .TemplateBuilder.ProductFamily }}.{{ .TemplateBuilder.DnsLabel }}
+    prefix: /canary-application
+    rewrite: /
+    route:
+      destination:
+        port:
+          number: 443
+  serviceEntry:
+    location: MESH_INTERNAL         # DNS, MESH_EXTERNAL, MESH_INTERNAL
+    ports:
+    - number: 443
+      name: https
+      protocol: TLS      
+    resolution: DNS
+  mongodb_serviceentry:             # Add additional service entries for egress patterns
+    create: false
+#    location: MESH_INTERNAL         # DNS, MESH_EXTERNAL, MESH_INTERNAL
+#    resolution: DNS
+#    port: 27017
+#    protocol: tcp
+#    hosts: 
+#    - g-vmx-2d-mongo-001.dev.azeus.gaptech.com
+#    addresses:
+#    - 10.1.1.1                      # Must be the ip address of the host set above
+  
+
+loadBalancer:
+  internal: false
+  #ip: 40.121.183.52
+  #dnsLabel: myDns.label
+
+
+agic:
+  ssl:
+    redirect: false
+    certificate:  
+    rootCertificate:
+    connection:
+      timeout: 
+  cookieBasedAfffinity: false
+  requestTimeout: 
+  privateIp: false
+  wafPolicyPath:
+  servicePort: 80 
+  tls:
+    enabled: true
+    host: 
+    secretName: frontend.tls
+  frontend:
+    port:
+  backend:
+    port: 
+    pathPrefix: 
+    hostName: 
+    protocol:
+  healthProbe:
+    hostName:
+    port:
+    path:
+    statusCodes:
+    interval: 
+    timeout: 
+    unhealthyThreshold:
+    
+argo:
+  enabled: true
+
+tetrate:
+  enabled: false
+  organization: {{ .TemplateBuilder.Company }}
+  tenant: {{ .TemplateBuilder.Company }}
+  workspace: {{ .TemplateBuilder.Tribe }}-workspace
+  trafficGroup: {{ .TemplateBuilder.Tribe }}-traffic
+  gatewayGroup: {{ .TemplateBuilder.Tribe }}-gateway
+  vsHash: {{ .TemplateBuilder.TetrateVSHash }}
+  drHash: {{ .TemplateBuilder.TetrateDRHash }}
+
+service:
+  type: ClusterIP        # Assigned LoadBalancer if ingress.pattern=loadbalancer
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
+
+csiSecretsProvider:
+  enabled: false
+  secretProviderClass: ""  # Optional. Defaults to "spc-{{ .TemplateBuilder.Name }}"
+  environmentVariables: 
+    - ENCRYPT_KEY
+    - DB_PASSWORD
+  sharedEnvironmentVariables: 
+    - SHARED_KEY
+    
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "{{ .TemplateBuilder.Name }}"
+
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext:
+   capabilities:
+     drop:
+     - ALL
+   readOnlyRootFilesystem: true
+   runAsNonRoot: true
+   runAsUser: 33
+
+containers:
+  ports:
+    - name: http
+      containerPort: 80
+      protocol: TCP
+  healthEndpoints:
+    enabled: true
+    livenessProbe:
+      failureThreshold: 30
+      initialDelaySeconds: 1
+      periodSeconds: 2
+      successThreshold: 1
+      timeoutSeconds: 1
+      httpGet:
+        path: /
+        port: http
+    readinessProbe:
+      failureThreshold: 30
+      initialDelaySeconds: 1
+      periodSeconds: 2
+      successThreshold: 1
+      timeoutSeconds: 1
+      httpGet:
+        path: /
+        port: http  
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 250m
+    memory: 500Mi
+  requests:
+    cpu: 250m
+    memory: 500Mi
+
+replicaCount: 3 # if autoscaling.pattern: none, this will be selected
+
+autoscaling:
+  pattern: nonprod
+  patterns: 
+    baseline:
+      hpa: 
+        enabled: true
+        minReplicas: 1
+        maxReplicas: 1
+        targetCPUUtilizationPercentage: 65
+        #targetMemoryUtilizationPercentage: 65
+      keda:
+        enabled: false
+        pollingInterval: 15
+        cooldownPeriod:  10
+        minReplicaCount: 1
+        maxReplicaCount: 1    
+        triggers:
+        - type: cpu
+          metadata:
+            type: Utilization
+            value: "65"
+    nonprod:
+      hpa: 
+        enabled: true
+        minReplicas: 3
+        maxReplicas: 20
+        targetCPUUtilizationPercentage: 65
+        #targetMemoryUtilizationPercentage: 65
+      keda:
+        enabled: false
+        pollingInterval: 15
+        cooldownPeriod:  10
+        minReplicaCount: 1
+        maxReplicaCount: 3    
+        triggers:
+        - type: cpu
+          metadata:
+            type: Utilization
+            value: "65"            
+    production:
+      hpa: 
+        enabled: true      
+        minReplicas: 10
+        maxReplicas: 48
+        targetCPUUtilizationPercentage: 65
+        #targetMemoryUtilizationPercentage: 65
+      keda:
+        enabled: false
+        pollingInterval: 15
+        cooldownPeriod:  10
+        minReplicaCount: 10
+        maxReplicaCount: 48    
+        triggers:
+        - type: cpu
+          metadata:
+            type: Utilization
+            value: "65"
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25% 
+
+data: 
+  NEW_RELIC_ENVIRONMENT: "development"
+  NEW_RELIC_APP_NAME: "{{ .TemplateBuilder.Name }}"
+  NEW_RELIC_LICENSE_KEY: "be76a3f41d2fd918d4ccf327853bf9536d64ed30"
+  NEW_RELIC_LOG_FILE_NAME: "STDOUT"    
+
+nodeSelector: {}
+  
+tolerations: {}
+
+affinity: {}
+
+nodePoolAssignments:
+  env:                                  #<- this value assigned during CI/CD
+  label:  
+    key: "gaptech.com/user-nodepool" 
+    value:                              #<- this value needs to be overwritten tp specify a specific node pool. This must match what is configured in the ADP Pipeline

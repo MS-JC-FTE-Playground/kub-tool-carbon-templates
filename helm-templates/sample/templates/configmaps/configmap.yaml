@@ -1,0 +1,8 @@
+apiVersion: v1
+{{- with .Values.data }}
+data:
+{{- toYaml . | nindent 2 }}
+{{- end }}
+kind: ConfigMap
+metadata:
+  name: "cfm-{{ include "{{ .TemplateBuilder.Name }}.fullname" . }}"

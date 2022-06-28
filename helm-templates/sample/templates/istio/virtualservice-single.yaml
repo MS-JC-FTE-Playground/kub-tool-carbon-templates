@@ -1,0 +1,32 @@
+{{- if and (eq .Values.ingress.pattern "istio") (eq .Values.istio.pattern "singlegateway") -}}
+{{- $fullName := include "{{ .TemplateBuilder.Name }}.fullname" . -}}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: "ivs-{{ $fullName }}"
+  {{ if .Values.tetrate.enabled }}
+  annotations:
+    tsb.tetrate.io/organization: {{ .Values.tetrate.organization }}
+    tsb.tetrate.io/tenant: {{ .Values.tetrate.tenant }}
+    tsb.tetrate.io/workspace: {{ .Values.tetrate.workspace }}
+    tsb.tetrate.io/trafficGroup: {{ .Values.tetrate.trafficGroup }}
+  {{ end }} 
+spec:
+  hosts:
+  - {{ .Values.externalDNS.dnsLabel }}
+  gateways:
+  - {{ .Values.istio.singlegateway.name }}
+  http:
+  - match:
+    - uri:
+        regex: .*
+    route:
+    - destination:
+        host: svc-{{ $fullName }}
+        port:
+        {{ if .Values.istio.tls.enabled }}
+          number: {{ .Values.istio.tls.port }}
+        {{ else }}
+          number: {{ .Values.istio.virtualService.port }}
+        {{ end }}
+{{ end }}

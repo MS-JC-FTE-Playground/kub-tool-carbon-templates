@@ -1,0 +1,18 @@
+{{ define "applicationName" }}
+  {{- printf "%s-%s" (include "{{ .TemplateBuilder.Name }}.fullname" .) "console" -}}
+{{- end }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "{{ .TemplateBuilder.Name }}.fullname" . }}-test-connection-console"
+  labels:
+    {{- include "{{ .TemplateBuilder.Name }}.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ template "applicationName" . }}:{{ .Values.service.ports.port }}']
+  restartPolicy: Never

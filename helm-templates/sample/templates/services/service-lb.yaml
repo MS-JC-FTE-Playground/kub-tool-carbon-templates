@@ -1,0 +1,27 @@
+{{ if eq .Values.ingress.pattern "loadbalancer" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "svc-{{ include "{{ .TemplateBuilder.Name }}.fullname" . }}"
+  labels:
+    {{- include "{{ .TemplateBuilder.Name }}.labels" . | nindent 4 }}
+  annotations:
+  {{ if .Values.externalDNS.enabled }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalDNS.dnsLabel }}
+  {{ end }}{{ if .Values.loadBalancer.internal }}
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  {{ end }}{{ if .Values.loadBalancer.dnsLabel }}
+    service.beta.kubernetes.io/azure-dns-label-name: {{ .Values.loadBalancer.dnsLabel }}
+  {{ end }}
+spec:
+  {{ if .Values.loadBalancer.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.loadBalancer.loadBalancerIP }}
+  {{ end }}
+  type: LoadBalancer
+  {{ with .Values.service.ports }}
+  ports:
+  {{- toYaml . | nindent 2 }}
+  {{ end }}
+  selector:
+  {{- include "{{ .TemplateBuilder.Name }}.selectorLabels" . | nindent 4 }}
+{{ end }}

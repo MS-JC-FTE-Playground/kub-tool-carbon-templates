@@ -1,0 +1,90 @@
+{{- $fullName := include "{{ .TemplateBuilder.Name }}.fullname" . -}}
+{{- $secretName := include "{{ .TemplateBuilder.Name }}.secretName" . -}}
+{{- $svcPort := .Values.agic.servicePort -}}
+{{- if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: "{{ $fullName }}-agic"
+  labels:
+    {{- include "{{ .TemplateBuilder.Name }}.labels" . | nindent 4 }}
+  annotations:
+  {{ if .Values.externalDNS.enabled }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalDNS.dnsLabel }}
+  {{ end }}
+    kubernetes.io/ingress.class: azure/application-gateway
+    {{ if .Values.agic.frontend.port }}
+    appgw.ingress.kubernetes.io/override-frontend-port: {{ .Values.agic.frontend.port }}
+    {{ end }}{{ if .Values.agic.backend.pathPrefix }}
+    appgw.ingress.kubernetes.io/backend-path-prefix: "{{ .Values.agic.backend.pathPrefix }}"
+    {{ end }}{{ if .Values.agic.backend.hostName }}
+    appgw.ingress.kubernetes.io/backend-hostname: {{ .Values.agic.backend.hostName }}
+    {{ end }}{{ if .Values.agic.backend.protocol }}
+    appgw.ingress.kubernetes.io/backend-protocol: {{ .Values.agic.backend.protocol }}
+    {{ end }}{{ if .Values.agic.ssl.redirect }}
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    {{ end }}{{ if .Values.agic.ssl.certificate }}
+    appgw.ingress.kubernetes.io/appgw-ssl-certificate: {{ .Values.agic.ssl.certificate }}
+    {{ end }}{{ if .Values.agic.ssl.rootCertificate }}
+    appgw.ingress.kubernetes.io/appgw-trusted-root-certificate: {{ .Values.agic.sssl.rootCertificate }}
+    {{ end }}{{ if .Values.agic.ssl.connection.timeout }}
+      appgw.ingress.kubernetes.io/connectin-draining: "true"
+      appgw.ingress.kubernetes.io/connection-draining-timeout: {{ .Values.agic.ssl.connection.timeout }}
+    {{ end }}{{ if .Values.agic.cookieBasedAfffinity }}
+    appgw.ingress.kubernetes.io/cookie-based-affinity: "true"
+    {{ end }}{{ if .Values.agic.requestTimeout }}
+    appgw.ingress.kubernetes.io/request-timeout: {{ .Values.agic.requestTimeout }}
+    {{ end }}{{ if .Values.agic.privateIp }}
+    appgw.ingress.kubernetes.io/use-private-ip: "true"
+    {{ end }}{{ if .Values.agic.wafPolicyPath }}
+    appgw.ingress.kubernetes.io/waf-policy-for-path: {{ .Values.agic.wafPolicyPath }}
+    {{ end }}{{ if .Values.agic.healthProbe.hostName }}
+    appgw.ingress.kubernetes.io/health-probe-hostname: {{ .Values.agic.healthProbe.hostName }}
+    {{ end }}{{ if .Values.agic.healthProbe.port }}
+    appgw.ingress.kubernetes.io/health-probe-port: {{ .Values.agic.healthProbe.port }}
+    {{ end }}{{ if .Values.agic.healthProbe.path }}
+    appgw.ingress.kubernetes.io/health-probe-path: {{ .Values.agic.healthProbe.path }}
+    {{ end }}{{ if .Values.agic.healthProbe.statusCodes }}
+    appgw.ingress.kubernetes.io/health-probe-status-codes: {{ .Values.agic.healthProbe.statusCodes }}
+    {{ end }}{{ if .Values.agic.healthProbe.interval }}
+    appgw.ingress.kubernetes.io/health-probe-interval: {{ .Values.agic.healthProbe.interval}}
+    {{ end }}{{ if .Values.agic.healthProbe.timeout }}
+    appgw.ingress.kubernetes.io/health-probe-timeout: {{ .Values.agic.healthProbe.timeout }}
+    {{ end }}{{ if .Values.agic.healthProbe.unhealthyThreshold }}
+    appgw.ingress.kubernetes.io/health-probe-unhealthy-threshold: {{ .Values.agic.healthProbe.unhealthyThreshold }}
+    {{ end }}
+spec:
+  {{- if .Values.agic.tls.enabled }}
+  tls:
+    {{- if .Values.agic.tls.host }}
+    - hosts:
+        - {{ .Values.agic.tls.host }}
+      secretName: {{ default $secretName .Values.agic.tls.secretName }}
+    {{ else }}
+    - secretName: {{ default $secretName .Values.agic.tls.secretName }}
+    {{ end }}
+  {{- end }}
+  rules:
+    {{- if .Values.agic.tls.enabled }}
+      {{- if .Values.agic.tls.host }}
+    - host: {{ .Values.agic.tls.host | quote }}
+      http:
+      {{ else }}
+    - http:
+      {{ end }}
+    {{ else }}
+    - http:
+    {{ end }}
+        paths:
+          {{ if .Values.agic.backend.path }}
+          - path: {{ .Values.agic.backend.path }}
+          {{ else }}
+          - path: 
+          {{ end }}
+            backend:
+              serviceName: "svc-{{ $fullName }}"
+              servicePort: {{ $svcPort }}
+  

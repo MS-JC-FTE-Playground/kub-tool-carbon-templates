@@ -1,0 +1,194 @@
+# Default values for {{ .TemplateBuilder.Name }}.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+repositories:
+  base: {{ .TemplateBuilder.BaseImagesACR }}
+  app: {{ .TemplateBuilder.AppACR }}
+
+image:
+  namespace: {{ .TemplateBuilder.ImageNamespace }}
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: {{ .TemplateBuilder.ImageTag }}
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+condensedName: {{ .TemplateBuilder.Condensed }}
+# Default values for {{ .TemplateBuilder.Name }}.
+
+externalDNS:
+  enabled: true
+  dnsLabel: {{ .TemplateBuilder.ProductFamily }}.{{ .TemplateBuilder.DnsLabel }}
+
+aadPodIdentity:
+  enabled: true
+  identity: ""    # defaults to "aib-{{ .TemplateBuilder.Name }}"
+
+argo:
+  enabled: false
+
+loadBalancer:
+  internal: true
+  #ip: 40.121.183.52
+  #dnsLabel: myDns.label
+
+agic:
+  ssl:
+    redirect: false
+    certificate:  
+    rootCertificate:
+    connection:
+      timeout: 
+  cookieBasedAfffinity: false
+  requestTimeout: 
+  privateIp: true
+  wafPolicyPath:
+  servicePort: 80 
+  tls:
+    enabled: true
+    host: 
+    secretName: secr-{{ .TemplateBuilder.Name }}-appgw
+  frontend:
+    port:
+  backend:
+    port: 
+    path: /{{ .TemplateBuilder.Name }}/*
+    pathPrefix: 
+    hostName:
+    protocol:
+  healthProbe:
+    hostName:
+    port:
+    path:
+    statusCodes:
+    interval: 
+    timeout: 
+    unhealthyThreshold:
+
+service:
+  type: ClusterIP        # Assigned LoadBalancer if ingress.pattern=loadbalancer
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
+
+csiSecretsProvider:
+  enabled: false
+  secretProviderClass: ""  # Optional. Defaults to "aib-{{ .TemplateBuilder.Name }}"
+  environmentVariables: 
+    - ENCRYPT_KEY
+    - DB_PASSWORD
+  sharedEnvironmentVariables: 
+    - SHARED_KEY
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "{{ .TemplateBuilder.Name }}"
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext:
+   capabilities:
+     drop:
+     - ALL
+   readOnlyRootFilesystem: false
+   runAsNonRoot: true
+   runAsUser: 33
+
+resources: 
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 1
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 500Mi
+
+autoscaling:
+  hpa: 
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 65
+    #targetMemoryUtilizationPercentage: 65
+  keda:
+    enabled: false
+    pollingInterval: 15
+    cooldownPeriod:  10
+    minReplicaCount: 1
+    maxReplicaCount: 1    
+    triggers:
+    - type: cpu
+      metadata:
+        type: Utilization
+        value: "65"
+
+containers:
+  ports:
+    - name: http
+      containerPort: 8080
+      protocol: TCP
+  healthEndpoints:
+    enabled: true
+    livenessProbe:     
+      initialDelaySeconds: 60
+      periodSeconds: 5
+      httpGet:
+        path: /{{ .TemplateBuilder.Name }}/healthcheck.jsp
+        port: http
+    readinessProbe:
+      initialDelaySeconds: 5
+      failureThreshold: 1 
+      httpGet:
+        path: /{{ .TemplateBuilder.Name }}/healthcheck.jsp
+        port: http
+  envFrom:
+  - configMapRef:
+      name: {{ .TemplateBuilder.Name }}-environment-variables
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25% 
+
+data: 
+  CONFIG_SERVER_URL: "https://{{ .TemplateBuilder.ProductFamily }}-configserver.{{ .TemplateBuilder.DnsLabel }}"
+  SPRING_PROFILES_ACTIVE: test
+  ENCRYPT_KEY: ""     # will be set via CSI Secret Provider
+  NEW_RELIC_ENVIRONMENT: "test"
+  NEW_RELIC_APP_NAME: "{{ .TemplateBuilder.Name }}"
+  NEW_RELIC_LICENSE_KEY: "be76a3f41d2fd918d4ccf327853bf9536d64ed30"
+  NEW_RELIC_LOG_FILE_NAME: "STDOUT"
+
+#  CONFIG_SERVER_URL: ""
+#  SPRING_PROFILES_ACTIVE: ""
+#  ENCRYPT_KEY: ""     # will be set via CSI Secret Provider
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+nodePoolAssignments:
+  env:                                  #<- this value assigned during CI/CD
+  label:  
+    key: "gaptech.com/user-nodepool" 
+    value:                              #<- this value needs to be overwritten tp specify a specific node pool. This must match what is configured in the ADP Pipeline

@@ -1,0 +1,24 @@
+{{- if and (eq .Values.ingress.pattern "istio") (eq .Values.istio.pattern "serviceentry") -}}
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: "svce-{{ include "{{ .TemplateBuilder.Name }}.fullname" . }}"
+  labels:
+    {{- include "{{ .TemplateBuilder.Name }}.labels" . | nindent 4 }}
+  {{ if .Values.tetrate.enabled }}
+  annotations:
+    tsb.tetrate.io/organization: {{ .Values.tetrate.organization }}
+    tsb.tetrate.io/tenant: {{ .Values.tetrate.tenant }}
+    tsb.tetrate.io/workspace: {{ .Values.tetrate.workspace }}
+    tsb.tetrate.io/trafficGroup: {{ .Values.tetrate.trafficGroup }}
+  {{ end }} 
+spec:
+  hosts:
+  {{- toYaml .Values.istio.serviceEntry.hosts | nindent 2 }}
+  location: {{ .Values.istio.serviceEntry.location }}
+  {{ with .Values.istio.serviceEntry.ports }}
+  ports:
+  {{- toYaml . | nindent 2 }}
+  {{ end }}
+  resolution: {{ .Values.istio.serviceEntry.resolution }}
+{{ end }}

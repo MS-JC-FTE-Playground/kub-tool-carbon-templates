@@ -1,0 +1,22 @@
+{{- if and (eq .Values.ingress.pattern "istio") ( .Values.istio.mongodb_serviceentry.create ) -}}
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: "svce-mongodb-ext-{{ include "{{ .TemplateBuilder.Name }}.fullname" . }}"
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{ with .Values.istio.mongodb_serviceentry.hosts }}
+  hosts:
+  {{- toYaml . | nindent 2 }}
+  {{ end }}
+  location: {{ .Values.istio.mongodb_serviceentry.location }}
+  resolution: {{ .Values.istio.mongodb_serviceentry.resolution }}
+  ports:
+  - name: mongo-tcp
+    number: {{ .Values.istio.mongodb_serviceentry.port }}
+    protocol: {{ .Values.istio.mongodb_serviceentry.protocol }}
+  {{ with .Values.istio.mongodb_serviceentry.addresses}}
+  addresses:
+  {{- toYaml . | nindent 2 }}
+  {{ end }}
+{{ end}}

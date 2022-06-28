@@ -1,0 +1,17 @@
+{{ if or (eq .Values.ingress.pattern "none") (eq .Values.ingress.pattern "agic" ) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "svc-{{ include "{{ .TemplateBuilder.Name }}.fullname" . }}"
+  labels:
+    {{- include "{{ .TemplateBuilder.Name }}.labels" . | nindent 4 }}
+  annotations:
+spec:
+  type: {{ .Values.service.type }}
+  {{ with .Values.service.ports }}
+  ports:
+  {{- toYaml . | nindent 2 }}
+  {{ end }}
+  selector:
+  {{- include "{{ .TemplateBuilder.Name }}.selectorLabels" . | nindent 4 }}
+{{ end }}

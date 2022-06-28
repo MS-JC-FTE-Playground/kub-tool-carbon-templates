@@ -1,0 +1,40 @@
+{{- if and (eq .Values.ingress.pattern "istio") (eq .Values.istio.pattern "singlegateway") -}}
+{{- $fullName := include "{{ .TemplateBuilder.Name }}.fullname" . -}}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: "igwy-{{ $fullName }}"
+  annotations: 
+  {{ if .Values.externalDNS.enabled }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalDNS.dnsLabel }}
+  {{ end }}
+  {{ if .Values.tetrate.enabled }}
+  annotations:
+    tsb.tetrate.io/organization: {{ .Values.tetrate.organization }}
+    tsb.tetrate.io/tenant: {{ .Values.tetrate.tenant }}
+    tsb.tetrate.io/workspace: {{ .Values.tetrate.workspace }}
+    tsb.tetrate.io/trafficGroup: {{ .Values.tetrate.trafficGroup }}
+  {{ end }}   
+spec:
+  selector:
+    istio: ingressgateway         # use istio default controller
+  servers:
+  {{ if .Values.istio.tls.enabled }}
+  - port:
+      number: {{ .Values.istio.tls.port }}
+      name: {{ .Values.istio.tls.portName }}
+      protocol: {{ .Values.istio.tls.portProtocol }}
+    tls:
+      mode: {{ .Values.istio.tls.mode }}
+      credentialName: cred-{{ .Release.Namespace }}
+    hosts:
+    - "{{ .Values.externalDNS.dnsLabel }}"
+  {{ else }}
+  - port:
+      number: {{ .Values.istio.singlegateway.port }}
+      name: {{ .Values.istio.singlegateway.portName }}
+      protocol: {{ .Values.istio.singlegateway.portProtocol }}
+    hosts:
+    - "{{ .Values.externalDNS.dnsLabel }}"
+  {{ end }}
+{{ end }}

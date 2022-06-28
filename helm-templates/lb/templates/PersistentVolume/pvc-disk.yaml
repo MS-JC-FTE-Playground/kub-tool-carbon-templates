@@ -1,0 +1,27 @@
+{{ if .Values.persistentStorage.enabled  }}
+{{ if eq .Values.persistentStorage.accessMode "ReadWriteOnce" }}
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: "scl-{{ .Values.persistentStorage.name }}-disk"
+  annotations:
+    "helm.sh/resource-policy": keep
+provisioner: kubernetes.io/azure-disk
+reclaimPolicy: {{ .Values.persistentStorage.reclaimPolicy }}
+parameters:
+  storageaccounttype: {{ .Values.persistentStorage.skuName }}
+  kind: Managed
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "pvc-{{ .Values.persistentStorage.name }}"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: {{ .Values.persistentStorage.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistentStorage.storage }}
+{{ end }}
+{{ end }}

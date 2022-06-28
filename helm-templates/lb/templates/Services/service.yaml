@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    {{- include "{{ .TemplateBuilder.Name }}.selectorLabels" . | nindent 4 }}
+  name: "svc-{{ include "{{ .TemplateBuilder.Name }}.fullname" . }}"
+  annotations:
+  {{ if .Values.externalDNS.enabled }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalDNS.dnsLabel }}
+  {{ end }}
+  {{  if .Values.loadBalancer.internal }}
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  {{ end }}
+  {{ if .Values.loadBalancer.dnsLabel }}
+    service.beta.kubernetes.io/azure-dns-label-name: {{ .Values.loadBalancer.dnsLabel }}
+  {{ end }}
+spec:
+  {{ if .Values.loadBalancer.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.loadBalancer.loadBalancerIP }}
+  {{ end }}
+  type: {{ .Values.service.type }}
+  ports:
+  - name: {{ .Values.service.ports.name }}
+    port: {{ .Values.service.ports.port }}
+    targetPort: {{ .Values.service.ports.targetPort }}
+  selector:
+    {{- include "{{ .TemplateBuilder.Name }}.selectorLabels" . | nindent 4 }}

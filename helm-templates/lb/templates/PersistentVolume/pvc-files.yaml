@@ -1,0 +1,30 @@
+{{ if .Values.persistentStorage.enabled  }}
+{{ if eq .Values.persistentStorage.accessMode "ReadWriteMany" }}
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: "scl-{{ .Values.persistentStorage.name }}-files"
+  annotations:
+    "helm.sh/resource-policy": keep
+provisioner: kubernetes.io/azure-file
+reclaimPolicy: {{ .Values.persistentStorage.reclaimPolicy }}
+{{- with .Values.persistentStorage.mountOptions }}
+mountOptions:
+ {{- toYaml . | nindent 2 }}
+{{ end }}
+parameters:
+  skuName: {{ .Values.persistentStorage.skuName }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "pvc-{{ .Values.persistentStorage.name }}"
+spec:
+  accessModes:
+  - {{ .Values.persistentStorage.accessMode }}
+  storageClassName: "scl-{{ .Values.persistentStorage.name }}-files"
+  resources:
+    requests:
+      storage: {{ .Values.persistentStorage.storage }}
+{{ end }}
+{{ end }}
